@@ -1,0 +1,1103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>South Country CSD Payroll</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px;
+    background: #f4f6f9;
+    color: #222;
+    line-height: 1.5;
+  }
+
+  header {
+    background: #1a3a5c;
+    color: #fff;
+    padding: 0 24px;
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+  }
+  .header-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 0;
+    margin-right: 32px;
+  }
+  header h1 { font-size: 1.25rem; font-weight: 600; }
+  header .subtitle { font-size: 0.8rem; opacity: 0.7; }
+
+  /* Nav tabs in header */
+  nav { display: flex; align-items: stretch; }
+  nav button {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,.65);
+    font-size: 0.85rem;
+    font-weight: 500;
+    padding: 0 18px;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: color .15s, border-color .15s;
+    white-space: nowrap;
+  }
+  nav button:hover { color: #fff; }
+  nav button.active { color: #fff; border-bottom-color: #5b9bd5; }
+
+  /* ── Employee Trend view ─────────────────────────────────────── */
+  .trend-layout {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 16px;
+    align-items: start;
+  }
+  @media (max-width: 800px) { .trend-layout { grid-template-columns: 1fr; } }
+
+  .emp-search-panel {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.08);
+    overflow: hidden;
+  }
+  .emp-search-panel h2 {
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: #555;
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid #eef0f3;
+  }
+  .emp-search-box {
+    padding: 12px 14px;
+    border-bottom: 1px solid #eef0f3;
+  }
+  .emp-search-box input {
+    width: 100%;
+    border: 1px solid #cdd3db;
+    border-radius: 5px;
+    padding: 7px 10px;
+    font-size: 0.85rem;
+    outline: none;
+  }
+  .emp-search-box input:focus { border-color: #1a3a5c; box-shadow: 0 0 0 2px rgba(26,58,92,.15); }
+  .emp-list {
+    max-height: 520px;
+    overflow-y: auto;
+  }
+  .emp-list-item {
+    padding: 9px 16px;
+    cursor: pointer;
+    border-bottom: 1px solid #f4f6f9;
+    transition: background .1s;
+  }
+  .emp-list-item:hover   { background: #f0f4f9; }
+  .emp-list-item.active  { background: #dbeafe; color: #1d4ed8; font-weight: 600; }
+  .emp-list-item .emp-name  { font-weight: 500; font-size: 0.85rem; }
+  .emp-list-item .emp-years { font-size: 0.72rem; color: #888; margin-top: 1px; }
+  .emp-list-item.active .emp-years { color: #3b82f6; }
+  .emp-list-empty { padding: 20px 16px; color: #999; font-size: 0.82rem; text-align: center; }
+
+  .trend-main { display: flex; flex-direction: column; gap: 16px; }
+
+  .trend-placeholder {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.08);
+    padding: 60px 24px;
+    text-align: center;
+    color: #aaa;
+    font-size: 0.95rem;
+  }
+
+  .chart-card {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.08);
+    padding: 20px 24px 16px;
+  }
+  .chart-card-header {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 4px;
+  }
+  .chart-card-header h2 { font-size: 1.05rem; font-weight: 700; color: #1a3a5c; }
+  .chart-card-header .emp-type-badge { font-size: 0.72rem; }
+
+  /* SVG line chart */
+  .line-chart-svg { width: 100%; display: block; }
+  .lc-axis line, .lc-axis path { stroke: #cdd3db; }
+  .lc-grid line { stroke: #eef0f3; stroke-dasharray: 4 3; }
+  .lc-axis text { font-size: 12px; fill: #666; font-family: inherit; }
+  .lc-label { font-size: 11px; fill: #999; font-family: inherit; }
+  .lc-line { fill: none; stroke: #1a3a5c; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+  .lc-area { fill: url(#areaGrad); opacity: .15; }
+  .lc-dot { fill: #fff; stroke: #1a3a5c; stroke-width: 2.5; cursor: pointer; transition: r .1s; }
+  .lc-dot:hover { r: 7; }
+  .lc-tooltip {
+    position: absolute;
+    background: #1a3a5c;
+    color: #fff;
+    border-radius: 6px;
+    padding: 7px 12px;
+    font-size: 0.78rem;
+    pointer-events: none;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity .15s;
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(0,0,0,.2);
+  }
+
+  /* Trend summary table */
+  .trend-table-wrap {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.08);
+    overflow: hidden;
+  }
+  .trend-table-wrap h3 {
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: #555;
+    padding: 12px 16px 10px;
+    border-bottom: 1px solid #eef0f3;
+  }
+  .trend-table td, .trend-table th { padding: 8px 16px; }
+  .trend-table th { font-size: 0.75rem; text-transform: uppercase; letter-spacing: .04em; color: #888; font-weight: 600; }
+  .trend-table td:not(:first-child), .trend-table th:not(:first-child) { text-align: right; }
+  .trend-table tbody tr:hover { background: #f0f4f9; }
+  .trend-table tbody tr { border-bottom: 1px solid #eef0f3; }
+
+  .main { max-width: 1300px; margin: 0 auto; padding: 20px 16px; }
+
+  /* page views */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* Stats cards */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .stat-card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 14px 16px;
+    border-left: 4px solid #1a3a5c;
+    box-shadow: 0 1px 3px rgba(0,0,0,.08);
+  }
+  .stat-card .label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: .05em; color: #666; }
+  .stat-card .value { font-size: 1.4rem; font-weight: 700; color: #1a3a5c; margin-top: 2px; }
+
+  /* Controls */
+  .controls {
+    background: #fff;
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.08);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+  }
+  .controls label { font-size: 0.78rem; font-weight: 600; color: #555; margin-right: 4px; }
+  .controls input[type="text"],
+  .controls select {
+    border: 1px solid #cdd3db;
+    border-radius: 5px;
+    padding: 6px 10px;
+    font-size: 0.85rem;
+    outline: none;
+    background: #fff;
+    color: #222;
+  }
+  .controls input[type="text"] { width: 220px; }
+  .controls input[type="text"]:focus,
+  .controls select:focus { border-color: #1a3a5c; box-shadow: 0 0 0 2px rgba(26,58,92,.15); }
+  .controls .sep { color: #cdd3db; font-size: 1.2rem; }
+  .result-count { margin-left: auto; font-size: 0.8rem; color: #666; }
+
+  /* Table wrapper */
+  .table-wrap {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.08);
+    overflow: hidden;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  thead th {
+    background: #1a3a5c;
+    color: #fff;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    padding: 11px 14px;
+    text-align: left;
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+  thead th:hover { background: #254d7a; }
+  thead th.sorted-asc::after  { content: " ▲"; opacity: .9; }
+  thead th.sorted-desc::after { content: " ▼"; opacity: .9; }
+  thead th:not([data-col]) { cursor: default; }
+
+  tbody tr { border-bottom: 1px solid #eef0f3; transition: background .1s; }
+  tbody tr:hover { background: #f0f4f9; }
+  tbody tr:last-child { border-bottom: none; }
+  td { padding: 9px 14px; vertical-align: middle; }
+
+  .td-name   { font-weight: 500; min-width: 160px; }
+  .td-pay    { font-variant-numeric: tabular-nums; text-align: right; }
+  .td-rate   { font-variant-numeric: tabular-nums; text-align: right; color: #555; }
+  .td-ndr    { color: #999; font-style: italic; }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 100px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: .03em;
+  }
+  .badge-educator { background: #dbeafe; color: #1d4ed8; }
+  .badge-general  { background: #dcfce7; color: #166534; }
+  .badge-other    { background: #f3f4f6; color: #555; }
+
+  .no-results {
+    text-align: center;
+    padding: 40px;
+    color: #888;
+    font-size: 0.95rem;
+  }
+
+  /* Pagination */
+  .pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 14px;
+    border-top: 1px solid #eef0f3;
+  }
+  .pagination button {
+    padding: 5px 12px;
+    border: 1px solid #cdd3db;
+    border-radius: 5px;
+    background: #fff;
+    cursor: pointer;
+    font-size: 0.82rem;
+    color: #444;
+    min-width: 34px;
+  }
+  .pagination button:hover:not(:disabled) { background: #f0f4f9; border-color: #1a3a5c; color: #1a3a5c; }
+  .pagination button.active { background: #1a3a5c; color: #fff; border-color: #1a3a5c; font-weight: 600; }
+  .pagination button:disabled { opacity: .4; cursor: default; }
+  .pagination .page-info { font-size: 0.78rem; color: #666; padding: 0 6px; }
+
+  .loading { text-align: center; padding: 60px; color: #888; }
+  .error   { text-align: center; padding: 40px; color: #c0392b; }
+
+  /* ── Year Summary view ──────────────────────────────────────── */
+  .yr-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+  .yr-card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 18px 20px;
+    border-top: 4px solid #1a3a5c;
+    box-shadow: 0 1px 3px rgba(0,0,0,.08);
+  }
+  .yr-card .yr-label { font-size: 1.6rem; font-weight: 800; color: #1a3a5c; }
+  .yr-card .yr-total { font-size: 1.15rem; font-weight: 700; color: #222; margin: 4px 0 2px; }
+  .yr-card .yr-meta  { font-size: 0.78rem; color: #666; }
+  .yr-card .yr-delta {
+    display: inline-block;
+    margin-top: 8px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 100px;
+  }
+  .yr-delta.up   { background: #dcfce7; color: #166534; }
+  .yr-delta.down { background: #fee2e2; color: #991b1b; }
+  .yr-delta.flat { background: #f3f4f6; color: #555; }
+
+  /* Bar chart */
+  .chart-wrap {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.08);
+    padding: 24px 24px 16px;
+    margin-bottom: 28px;
+  }
+  .chart-wrap h2 {
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: #555;
+    margin-bottom: 20px;
+  }
+  .chart { display: flex; align-items: flex-end; gap: 16px; height: 200px; }
+  .bar-group { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end; }
+  .bar-col { width: 100%; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+  .bar {
+    width: 100%;
+    background: linear-gradient(180deg, #5b9bd5 0%, #1a3a5c 100%);
+    border-radius: 4px 4px 0 0;
+    transition: opacity .15s;
+    min-height: 4px;
+    position: relative;
+  }
+  .bar:hover { opacity: .85; }
+  .bar-val {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #1a3a5c;
+    margin-bottom: 4px;
+    white-space: nowrap;
+  }
+  .bar-yr {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #444;
+  }
+
+  /* Year detail table */
+  .yr-detail-wrap {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.08);
+    overflow: hidden;
+  }
+  .yr-detail-wrap h2 {
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: #555;
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid #eef0f3;
+  }
+  .yr-table td { padding: 10px 16px; }
+  .yr-table td:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+  .yr-table thead th { text-align: left; }
+  .yr-table thead th:not(:first-child) { text-align: right; }
+  .yr-table tr.total-row { background: #f0f4f9; font-weight: 700; border-top: 2px solid #cdd3db; }
+
+  footer {
+    text-align: center;
+    padding: 20px;
+    font-size: 0.75rem;
+    color: #999;
+  }
+  footer a { color: #1a3a5c; text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-title">
+    <h1>South Country CSD Payroll</h1>
+    <span class="subtitle">SeeThroughNY.net</span>
+  </div>
+  <nav>
+    <button class="active" onclick="showView('employees')">Employee Records</button>
+    <button onclick="showView('yearly')">Year-over-Year Summary</button>
+    <button onclick="showView('trend')">Employee Salary Trend</button>
+  </nav>
+</header>
+
+<div class="main">
+
+  <!-- ═══════════════ EMPLOYEE RECORDS VIEW ═══════════════ -->
+  <div id="view-employees" class="view active">
+
+    <div id="stats" class="stats">
+      <div class="stat-card"><div class="label">Loading…</div></div>
+    </div>
+
+    <div class="controls">
+      <span>
+        <label for="search">Search</label>
+        <input type="text" id="search" placeholder="Name, title, type…" autocomplete="off">
+      </span>
+      <span class="sep">|</span>
+      <span>
+        <label for="filterYear">Year</label>
+        <select id="filterYear"><option value="">All years</option></select>
+      </span>
+      <span>
+        <label for="filterType">Type</label>
+        <select id="filterType"><option value="">All types</option></select>
+      </span>
+      <span class="result-count" id="resultCount"></span>
+    </div>
+
+    <div class="table-wrap">
+      <table id="tbl">
+        <thead>
+          <tr>
+            <th data-col="name"           data-type="str">#  Name</th>
+            <th data-col="title"          data-type="str">Title / Position</th>
+            <th data-col="subagency_type" data-type="str">Type</th>
+            <th data-col="pay_year"       data-type="num">Year</th>
+            <th data-col="total_pay"      data-type="num">Total Pay</th>
+            <th data-col="rate_of_pay"    data-type="num">Rate of Pay</th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <tr><td colspan="6" class="loading">Loading payroll data…</td></tr>
+        </tbody>
+      </table>
+      <div class="pagination" id="pagination"></div>
+    </div>
+
+  </div><!-- /view-employees -->
+
+  <!-- ═══════════════ YEAR SUMMARY VIEW ═══════════════ -->
+  <div id="view-yearly" class="view">
+    <div id="yr-content">
+      <div class="loading">Loading…</div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ EMPLOYEE TREND VIEW ═══════════════ -->
+  <div id="view-trend" class="view">
+    <div class="trend-layout">
+
+      <!-- Left: employee picker -->
+      <div class="emp-search-panel">
+        <h2>Select Employee</h2>
+        <div class="emp-search-box">
+          <input type="text" id="empSearch" placeholder="Type a name to filter…" autocomplete="off">
+        </div>
+        <div class="emp-list" id="empList"></div>
+      </div>
+
+      <!-- Right: chart + table -->
+      <div class="trend-main" id="trendMain">
+        <div class="trend-placeholder">Select an employee on the left to view their salary over time.</div>
+      </div>
+
+    </div>
+    <div class="lc-tooltip" id="lcTooltip"></div>
+  </div>
+
+</div><!-- /main -->
+
+<footer>
+  Data source: <a href="https://www.seethroughny.net/payrolls" target="_blank">SeeThroughNY.net</a>
+  &nbsp;·&nbsp; Refresh data: run <code>python3 fetch_data.py</code> then reload
+</footer>
+
+<script>
+const PAGE_SIZE = 100;
+
+let allRecords  = [];
+let filtered    = [];
+let sortCol     = "total_pay";
+let sortDir     = "desc";
+let currentPage = 1;
+
+// ── formatters ──────────────────────────────────────────────────
+const fmt$ = n => n == null ? '' : '$' + n.toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0});
+const fmtRate = (n, s) => {
+  if (n == null) return `<span class="td-ndr">${s||'NDR'}</span>`;
+  return '$' + n.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+};
+const typeBadge = t => {
+  if (!t) return '';
+  if (t.includes('Educator'))        return `<span class="badge badge-educator">${t}</span>`;
+  if (t.includes('General Employee'))return `<span class="badge badge-general">${t}</span>`;
+  return `<span class="badge badge-other">${t}</span>`;
+};
+
+// ── nav ──────────────────────────────────────────────────────────
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if (name === 'yearly' && allRecords.length) renderYearlySummary();
+  if (name === 'trend'  && allRecords.length) initTrendView();
+}
+
+// ── load data ───────────────────────────────────────────────────
+async function loadData() {
+  try {
+    const resp = await fetch('./data/south_country_csd.json');
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const json = await resp.json();
+    allRecords = json.records || [];
+    buildStats(json.meta);
+    buildFilters();
+    applyFilters();
+  } catch (e) {
+    document.getElementById('tbody').innerHTML =
+      `<tr><td colspan="6" class="error">
+        Could not load data.<br>
+        <small>Run this page via a local server:<br>
+        <code>python3 serve.py</code> then open <a href="http://localhost:8000">localhost:8000</a></small>
+      </td></tr>`;
+  }
+}
+
+// ── stats ────────────────────────────────────────────────────────
+function buildStats(meta) {
+  const pays = allRecords.map(r => r.total_pay).filter(v => v != null);
+  const total = pays.reduce((a,b) => a+b, 0);
+  const avg   = pays.length ? total / pays.length : 0;
+  const max   = pays.length ? Math.max(...pays) : 0;
+  const topRec = allRecords.find(r => r.total_pay === max);
+
+  const cards = [
+    { label: 'Total Records',  value: allRecords.length.toLocaleString() },
+    { label: 'Total Payroll',  value: fmt$(total) },
+    { label: 'Average Pay',    value: fmt$(avg) },
+    { label: 'Highest Single Pay', value: fmt$(max) },
+    { label: 'Top Earner',     value: topRec ? topRec.name : '' },
+    { label: 'Years Covered',  value: [...new Set(allRecords.map(r=>r.pay_year))].sort().join(', ') },
+  ];
+  document.getElementById('stats').innerHTML = cards.map(c =>
+    `<div class="stat-card"><div class="label">${c.label}</div><div class="value">${c.value}</div></div>`
+  ).join('');
+}
+
+// ── year summary ─────────────────────────────────────────────────
+function renderYearlySummary() {
+  const years = [...new Set(allRecords.map(r => r.pay_year).filter(Boolean))].sort();
+
+  // Build per-year stats
+  const byYear = {};
+  years.forEach(y => {
+    const recs = allRecords.filter(r => r.pay_year === y);
+    const pays = recs.map(r => r.total_pay).filter(v => v != null);
+    const total = pays.reduce((a,b) => a+b, 0);
+    const avg   = pays.length ? total / pays.length : 0;
+    const max   = pays.length ? Math.max(...pays) : 0;
+    const topRec = recs.find(r => r.total_pay === max);
+
+    // breakdown by type
+    const types = {};
+    recs.forEach(r => {
+      const t = r.subagency_type || 'Unknown';
+      if (!types[t]) types[t] = { count: 0, total: 0 };
+      types[t].count++;
+      types[t].total += r.total_pay || 0;
+    });
+
+    byYear[y] = { year: y, count: recs.length, total, avg, max, topRec, types };
+  });
+
+  // Year-over-year delta
+  const pctChange = (curr, prev) => {
+    if (!prev) return null;
+    return ((curr - prev) / prev) * 100;
+  };
+
+  // ── summary cards ──
+  let cardsHtml = '<div class="yr-grid">';
+  years.forEach((y, i) => {
+    const d = byYear[y];
+    const prev = i > 0 ? byYear[years[i-1]] : null;
+    const delta = prev ? pctChange(d.total, prev.total) : null;
+    let deltaHtml = '';
+    if (delta !== null) {
+      const sign = delta >= 0 ? '+' : '';
+      const cls  = delta > 0.05 ? 'up' : delta < -0.05 ? 'down' : 'flat';
+      deltaHtml = `<span class="yr-delta ${cls}">${sign}${delta.toFixed(1)}% vs ${years[i-1]}</span>`;
+    }
+    cardsHtml += `
+      <div class="yr-card">
+        <div class="yr-label">${y}</div>
+        <div class="yr-total">${fmt$(d.total)}</div>
+        <div class="yr-meta">${d.count.toLocaleString()} employees &nbsp;·&nbsp; avg ${fmt$(d.avg)}</div>
+        <div class="yr-meta">Top: ${d.topRec ? d.topRec.name : '—'} (${fmt$(d.max)})</div>
+        ${deltaHtml}
+      </div>`;
+  });
+  cardsHtml += '</div>';
+
+  // ── bar chart ──
+  const maxTotal = Math.max(...years.map(y => byYear[y].total));
+  let chartHtml = `<div class="chart-wrap"><h2>Total Payroll by Year</h2><div class="chart">`;
+  years.forEach(y => {
+    const d = byYear[y];
+    const pct = maxTotal > 0 ? (d.total / maxTotal) * 100 : 0;
+    chartHtml += `
+      <div class="bar-group">
+        <div class="bar-col">
+          <div class="bar-val">${fmt$(d.total)}</div>
+          <div class="bar" style="height:${pct.toFixed(1)}%" title="${y}: ${fmt$(d.total)}"></div>
+        </div>
+        <div class="bar-yr">${y}</div>
+      </div>`;
+  });
+  chartHtml += '</div></div>';
+
+  // ── detail table ──
+  let tableHtml = `
+    <div class="yr-detail-wrap">
+      <h2>Year-by-Year Breakdown</h2>
+      <table class="yr-table">
+        <thead>
+          <tr>
+            <th>Year</th>
+            <th>Employees</th>
+            <th>Total Payroll</th>
+            <th>Avg Pay</th>
+            <th>Highest Pay</th>
+            <th>Top Earner</th>
+            <th>Change vs Prior Year</th>
+          </tr>
+        </thead>
+        <tbody>`;
+
+  let grandTotal = 0, grandCount = 0;
+  years.forEach((y, i) => {
+    const d = byYear[y];
+    grandTotal += d.total;
+    grandCount += d.count;
+    const prev  = i > 0 ? byYear[years[i-1]] : null;
+    const delta = prev ? pctChange(d.total, prev.total) : null;
+    let deltaCell = '—';
+    if (delta !== null) {
+      const sign = delta >= 0 ? '+' : '';
+      const color = delta > 0.05 ? '#166534' : delta < -0.05 ? '#991b1b' : '#555';
+      const absDiff = fmt$(d.total - prev.total);
+      deltaCell = `<span style="color:${color};font-weight:600">${sign}${delta.toFixed(1)}%</span>
+                   <span style="color:#888;font-size:.78rem;margin-left:4px">(${delta>=0?'+':''}${absDiff})</span>`;
+    }
+
+    // type breakdown sub-row text
+    const typeBreakdown = Object.entries(d.types)
+      .sort((a,b) => b[1].total - a[1].total)
+      .map(([t, v]) => `${t}: ${v.count} · ${fmt$(v.total)}`)
+      .join('&emsp;');
+
+    tableHtml += `
+      <tr>
+        <td><strong>${y}</strong></td>
+        <td>${d.count.toLocaleString()}</td>
+        <td>${fmt$(d.total)}</td>
+        <td>${fmt$(d.avg)}</td>
+        <td>${fmt$(d.max)}</td>
+        <td>${d.topRec ? d.topRec.name : '—'}</td>
+        <td>${deltaCell}</td>
+      </tr>
+      <tr style="background:#fafbfd;border-bottom:1px solid #eef0f3">
+        <td></td>
+        <td colspan="6" style="font-size:.75rem;color:#777;padding-top:4px;padding-bottom:8px">${typeBreakdown}</td>
+      </tr>`;
+  });
+
+  tableHtml += `
+      <tr class="total-row">
+        <td>All Years</td>
+        <td>${grandCount.toLocaleString()}</td>
+        <td>${fmt$(grandTotal)}</td>
+        <td>${fmt$(grandTotal / grandCount)}</td>
+        <td colspan="3"></td>
+      </tr>
+    </tbody></table></div>`;
+
+  document.getElementById('yr-content').innerHTML = cardsHtml + chartHtml + tableHtml;
+}
+
+// ── filters ──────────────────────────────────────────────────────
+function buildFilters() {
+  const years = [...new Set(allRecords.map(r => r.pay_year).filter(Boolean))].sort();
+  const types = [...new Set(allRecords.map(r => r.subagency_type).filter(Boolean))].sort();
+
+  const ySel = document.getElementById('filterYear');
+  years.forEach(y => { const o = document.createElement('option'); o.value=y; o.text=y; ySel.append(o); });
+
+  const tSel = document.getElementById('filterType');
+  types.forEach(t => { const o = document.createElement('option'); o.value=t; o.text=t; tSel.append(o); });
+}
+
+function applyFilters() {
+  const q    = document.getElementById('search').value.toLowerCase().trim();
+  const year = document.getElementById('filterYear').value;
+  const type = document.getElementById('filterType').value;
+
+  filtered = allRecords.filter(r => {
+    if (year && r.pay_year !== year) return false;
+    if (type && r.subagency_type !== type) return false;
+    if (q) {
+      const hay = [r.name, r.title, r.subagency_type, r.branch, r.pay_basis].join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  filtered.sort((a,b) => {
+    let av = a[sortCol], bv = b[sortCol];
+    if (av == null) av = sortDir === 'asc' ? Infinity : -Infinity;
+    if (bv == null) bv = sortDir === 'asc' ? Infinity : -Infinity;
+    if (typeof av === 'string') av = av.toLowerCase();
+    if (typeof bv === 'string') bv = bv.toLowerCase();
+    if (av < bv) return sortDir === 'asc' ? -1 : 1;
+    if (av > bv) return sortDir === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  currentPage = 1;
+  document.getElementById('resultCount').textContent =
+    `${filtered.length.toLocaleString()} of ${allRecords.length.toLocaleString()} records`;
+  renderTable();
+}
+
+// ── render table ─────────────────────────────────────────────────
+function renderTable() {
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const page  = filtered.slice(start, start + PAGE_SIZE);
+
+  if (!page.length) {
+    document.getElementById('tbody').innerHTML =
+      '<tr><td colspan="6" class="no-results">No records match your filters.</td></tr>';
+    renderPagination();
+    return;
+  }
+
+  const rows = page.map((r, i) => {
+    const rank  = start + i + 1;
+    const title = r.title === 'NDR' || !r.title ? '<span class="td-ndr">NDR</span>' : r.title;
+    return `<tr>
+      <td class="td-name">${rank}. ${r.name}</td>
+      <td>${title}</td>
+      <td>${typeBadge(r.subagency_type)}</td>
+      <td>${r.pay_year || ''}</td>
+      <td class="td-pay">${fmt$(r.total_pay)}</td>
+      <td class="td-rate">${fmtRate(r.rate_of_pay, r.rate_of_pay_str)}</td>
+    </tr>`;
+  });
+  document.getElementById('tbody').innerHTML = rows.join('');
+  renderPagination();
+}
+
+// ── pagination ───────────────────────────────────────────────────
+function renderPagination() {
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const pag = document.getElementById('pagination');
+  if (totalPages <= 1) { pag.innerHTML = ''; return; }
+
+  const btn = (label, page, disabled, active) =>
+    `<button onclick="goPage(${page})" ${disabled?'disabled':''} class="${active?'active':''}">${label}</button>`;
+
+  let html = btn('«', 1, currentPage===1, false);
+  html += btn('‹', currentPage-1, currentPage===1, false);
+
+  let lo = Math.max(1, currentPage - 2), hi = Math.min(totalPages, currentPage + 2);
+  if (lo > 1) html += btn('1', 1, false, false) + (lo > 2 ? '<span class="page-info">…</span>' : '');
+  for (let p = lo; p <= hi; p++) html += btn(p, p, false, p === currentPage);
+  if (hi < totalPages) html += (hi < totalPages - 1 ? '<span class="page-info">…</span>' : '') + btn(totalPages, totalPages, false, false);
+
+  html += btn('›', currentPage+1, currentPage===totalPages, false);
+  html += btn('»', totalPages,    currentPage===totalPages, false);
+  html += `<span class="page-info">Page ${currentPage} of ${totalPages}</span>`;
+
+  pag.innerHTML = html;
+}
+
+function goPage(p) {
+  currentPage = p;
+  renderTable();
+  document.querySelector('.table-wrap').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+// ── sort ─────────────────────────────────────────────────────────
+document.querySelectorAll('thead th[data-col]').forEach(th => {
+  th.addEventListener('click', () => {
+    const col = th.dataset.col;
+    if (sortCol === col) {
+      sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      sortCol = col;
+      sortDir = col === 'name' || col === 'title' || col === 'subagency_type' ? 'asc' : 'desc';
+    }
+    document.querySelectorAll('thead th').forEach(t => t.classList.remove('sorted-asc','sorted-desc'));
+    th.classList.add(sortDir === 'asc' ? 'sorted-asc' : 'sorted-desc');
+    applyFilters();
+  });
+});
+
+document.querySelector(`th[data-col="${sortCol}"]`).classList.add('sorted-desc');
+
+// ── event wiring ─────────────────────────────────────────────────
+let debounceTimer;
+document.getElementById('search').addEventListener('input', () => {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(applyFilters, 200);
+});
+document.getElementById('filterYear').addEventListener('change', applyFilters);
+document.getElementById('filterType').addEventListener('change', applyFilters);
+
+// ── employee trend view ──────────────────────────────────────────
+let trendInitialized = false;
+let selectedEmployee = null;
+
+// Build a map of name -> [{year, total_pay, subagency_type}] across all years
+function buildEmployeeMap() {
+  const map = {};
+  allRecords.forEach(r => {
+    if (!r.name) return;
+    if (!map[r.name]) map[r.name] = [];
+    map[r.name].push({ year: r.pay_year, total_pay: r.total_pay, subagency_type: r.subagency_type });
+  });
+  // Sort each employee's entries by year
+  Object.values(map).forEach(arr => arr.sort((a,b) => a.year.localeCompare(b.year)));
+  return map;
+}
+
+let employeeMap = {};
+
+function initTrendView() {
+  if (trendInitialized) return;
+  trendInitialized = true;
+  employeeMap = buildEmployeeMap();
+  renderEmpList('');
+
+  document.getElementById('empSearch').addEventListener('input', e => {
+    renderEmpList(e.target.value.trim().toLowerCase());
+  });
+}
+
+function renderEmpList(query) {
+  const list = document.getElementById('empList');
+  const allYears = [...new Set(allRecords.map(r => r.pay_year).filter(Boolean))].sort();
+
+  let names = Object.keys(employeeMap).sort();
+  if (query) names = names.filter(n => n.toLowerCase().includes(query));
+
+  if (!names.length) {
+    list.innerHTML = '<div class="emp-list-empty">No employees found.</div>';
+    return;
+  }
+
+  list.innerHTML = names.map(name => {
+    const entries = employeeMap[name];
+    const years   = entries.map(e => e.year).join(', ');
+    const maxPay  = Math.max(...entries.map(e => e.total_pay || 0));
+    const isActive = name === selectedEmployee ? 'active' : '';
+    return `<div class="emp-list-item ${isActive}" onclick="selectEmployee('${name.replace(/'/g,"\\'")}')">
+      <div class="emp-name">${name}</div>
+      <div class="emp-years">${entries.length} yr${entries.length>1?'s':''}: ${years} &nbsp;·&nbsp; peak ${fmt$(maxPay)}</div>
+    </div>`;
+  }).join('');
+}
+
+function selectEmployee(name) {
+  selectedEmployee = name;
+  // Update active state in list
+  document.querySelectorAll('.emp-list-item').forEach(el => el.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  renderTrendChart(name);
+}
+
+function renderTrendChart(name) {
+  const entries  = employeeMap[name];
+  const allYears = [...new Set(allRecords.map(r => r.pay_year).filter(Boolean))].sort();
+  const main     = document.getElementById('trendMain');
+
+  // Build year->pay lookup (null if no record that year)
+  const payByYear = {};
+  allYears.forEach(y => payByYear[y] = null);
+  entries.forEach(e => payByYear[e.year] = e.total_pay);
+
+  const subtype  = entries[entries.length - 1].subagency_type || '';
+  const pays     = entries.map(e => e.total_pay).filter(v => v != null);
+  const minPay   = Math.min(...pays);
+  const maxPay   = Math.max(...pays);
+  const avgPay   = pays.reduce((a,b)=>a+b,0) / pays.length;
+  const firstPay = entries[0].total_pay;
+  const lastPay  = entries[entries.length-1].total_pay;
+  const totalDelta = firstPay != null && lastPay != null ? lastPay - firstPay : null;
+  const totalPct   = firstPay ? (totalDelta / firstPay) * 100 : null;
+
+  // ── SVG line chart ──
+  const W = 700, H = 260;
+  const PAD = { top: 30, right: 30, bottom: 40, left: 80 };
+  const cW = W - PAD.left - PAD.right;
+  const cH = H - PAD.top  - PAD.bottom;
+
+  // Only plot years where the employee has data
+  const plotYears = allYears.filter(y => payByYear[y] != null);
+  const n = plotYears.length;
+
+  // Y axis: give 10% padding above/below
+  const yMin = Math.max(0, minPay * 0.88);
+  const yMax = maxPay * 1.08;
+  const yRange = yMax - yMin || 1;
+
+  const xPos = y => PAD.left + (n > 1 ? plotYears.indexOf(y) / (n-1) * cW : cW/2);
+  const yPos = v => PAD.top  + (1 - (v - yMin) / yRange) * cH;
+
+  // Y axis ticks
+  const yTicks = 5;
+  const yStep  = (yMax - yMin) / yTicks;
+  const yTickVals = Array.from({length: yTicks+1}, (_,i) => yMin + i * yStep);
+
+  // Build SVG path
+  const points = plotYears.map(y => [xPos(y), yPos(payByYear[y])]);
+  const linePath = points.map((p,i) => (i===0?'M':'L') + p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+  const areaPath = linePath + ` L${points[points.length-1][0].toFixed(1)},${(PAD.top+cH).toFixed(1)} L${points[0][0].toFixed(1)},${(PAD.top+cH).toFixed(1)} Z`;
+
+  // Dots with data attrs for tooltip
+  const dots = points.map((p, i) => {
+    const y   = plotYears[i];
+    const pay = payByYear[y];
+    const prev = i > 0 ? payByYear[plotYears[i-1]] : null;
+    const chg  = prev != null ? ((pay - prev) / prev * 100) : null;
+    const chgTxt = chg != null ? (chg >= 0 ? '+' : '') + chg.toFixed(1) + '%' : '';
+    return `<circle class="lc-dot" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="5"
+      data-year="${y}" data-pay="${pay}" data-chg="${chgTxt}"
+      onmouseenter="showTooltip(event)" onmouseleave="hideTooltip()"/>`;
+  }).join('');
+
+  const gridLines = yTickVals.map(v =>
+    `<line class="lc-grid" x1="${PAD.left}" x2="${PAD.left+cW}" y1="${yPos(v).toFixed(1)}" y2="${yPos(v).toFixed(1)}"/>`
+  ).join('');
+
+  const yAxisTicks = yTickVals.map(v =>
+    `<text x="${PAD.left - 8}" y="${yPos(v).toFixed(1)}" text-anchor="end" dominant-baseline="middle" class="lc-axis">${fmt$(v)}</text>`
+  ).join('');
+
+  const xAxisLabels = plotYears.map((y, i) =>
+    `<text x="${xPos(y).toFixed(1)}" y="${(PAD.top+cH+20).toFixed(1)}" text-anchor="middle" class="lc-axis">${y}</text>`
+  ).join('');
+
+  // Year labels on dots (pay value above dot)
+  const dotLabels = points.map((p, i) => {
+    const pay = payByYear[plotYears[i]];
+    return `<text x="${p[0].toFixed(1)}" y="${(p[1]-12).toFixed(1)}" text-anchor="middle" class="lc-label">${fmt$(pay)}</text>`;
+  }).join('');
+
+  const svg = `<svg class="line-chart-svg" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%"   stop-color="#1a3a5c" stop-opacity=".4"/>
+        <stop offset="100%" stop-color="#1a3a5c" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <g>${gridLines}</g>
+    <path class="lc-area" d="${areaPath}"/>
+    <path class="lc-line" d="${linePath}"/>
+    ${dotLabels}
+    ${dots}
+    <g class="lc-axis">
+      <line x1="${PAD.left}" y1="${PAD.top}" x2="${PAD.left}" y2="${PAD.top+cH}"/>
+      <line x1="${PAD.left}" y1="${PAD.top+cH}" x2="${PAD.left+cW}" y2="${PAD.top+cH}"/>
+      ${yAxisTicks}
+      ${xAxisLabels}
+    </g>
+  </svg>`;
+
+  // ── summary stats for this employee ──
+  const deltaHtml = totalDelta != null ? (() => {
+    const sign = totalDelta >= 0 ? '+' : '';
+    const cls  = totalDelta > 0 ? 'up' : totalDelta < 0 ? 'down' : 'flat';
+    return `<span class="yr-delta ${cls}" style="font-size:.82rem">${sign}${fmt$(totalDelta)} (${sign}${totalPct.toFixed(1)}%) since ${entries[0].year}</span>`;
+  })() : '';
+
+  const statCards = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px">
+    ${[
+      { label:'Years on Record', value: entries.length },
+      { label:'Peak Pay',        value: fmt$(maxPay) },
+      { label:'Lowest Pay',      value: fmt$(minPay) },
+      { label:'Average Pay',     value: fmt$(avgPay) },
+      { label:'Latest Pay',      value: fmt$(lastPay) },
+    ].map(c=>`<div class="stat-card" style="border-left-color:#5b9bd5">
+      <div class="label">${c.label}</div>
+      <div class="value" style="font-size:1.1rem">${c.value}</div>
+    </div>`).join('')}
+  </div>`;
+
+  // ── year-by-year table ──
+  const tableRows = allYears.map(y => {
+    const pay  = payByYear[y];
+    const idx  = plotYears.indexOf(y);
+    const prev = idx > 0 ? payByYear[plotYears[idx-1]] : null;
+    const chg  = pay != null && prev != null ? ((pay - prev) / prev * 100) : null;
+    let chgCell = '—';
+    if (chg !== null) {
+      const sign  = chg >= 0 ? '+' : '';
+      const color = chg > 0.05 ? '#166534' : chg < -0.05 ? '#991b1b' : '#555';
+      chgCell = `<span style="color:${color};font-weight:600">${sign}${chg.toFixed(1)}%</span>
+                 <span style="color:#aaa;font-size:.75rem;margin-left:4px">(${sign}${fmt$(pay-prev)})</span>`;
+    }
+    return pay != null
+      ? `<tr><td>${y}</td><td>${fmt$(pay)}</td><td>${chgCell}</td></tr>`
+      : `<tr style="color:#bbb"><td>${y}</td><td>—</td><td>—</td></tr>`;
+  }).join('');
+
+  main.innerHTML = `
+    <div class="chart-card">
+      <div class="chart-card-header">
+        <h2>${name}</h2>
+        ${typeBadge(subtype)}
+        ${deltaHtml}
+      </div>
+      <p style="font-size:.78rem;color:#888;margin-bottom:16px">Hover dots for details</p>
+      <div style="position:relative">${svg}</div>
+    </div>
+    ${statCards}
+    <div class="trend-table-wrap">
+      <h3>Year-by-Year Detail</h3>
+      <table class="trend-table" style="width:100%;border-collapse:collapse">
+        <thead><tr><th>Year</th><th>Total Pay</th><th>Change vs Prior Year</th></tr></thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+    </div>`;
+}
+
+function showTooltip(e) {
+  const tip  = document.getElementById('lcTooltip');
+  const year = e.target.dataset.year;
+  const pay  = parseFloat(e.target.dataset.pay);
+  const chg  = e.target.dataset.chg;
+  tip.innerHTML = `<strong>${year}</strong>: ${fmt$(pay)}${chg ? '<br>'+chg+' vs prior year' : ''}`;
+  tip.style.opacity = '1';
+  moveTip(e);
+  e.target.addEventListener('mousemove', moveTip);
+}
+function moveTip(e) {
+  const tip = document.getElementById('lcTooltip');
+  tip.style.left = (e.pageX + 14) + 'px';
+  tip.style.top  = (e.pageY - 36) + 'px';
+}
+function hideTooltip() {
+  document.getElementById('lcTooltip').style.opacity = '0';
+}
+
+loadData();
+</script>
+</body>
+</html>

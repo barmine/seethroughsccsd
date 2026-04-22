@@ -1,0 +1,97 @@
+SeeThroughNY API Discovery
+==========================
+Date: 2026-04-21
+Target: South Country CSD
+
+ENDPOINT
+--------
+URL:    https://www.seethroughny.net/tools/required/reports/payroll?action=get
+Method: POST
+Content-Type: application/x-www-form-urlencoded
+
+HEADERS REQUIRED
+----------------
+User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36
+Accept: application/json, text/javascript, */*; q=0.01
+X-Requested-With: XMLHttpRequest
+Referer: https://www.seethroughny.net/payrolls
+Origin: https://www.seethroughny.net
+
+POST BODY PARAMETERS
+--------------------
+First page (initial search):
+  PayYear[]        = 2025              (can be repeated for multiple years; omit for all years)
+  AgencyName[]     = South Country CSD (the employer/school district filter)
+  SortBy           = YTDPay DESC       (sorting)
+  url              = /tools/required/reports/payroll?action=get
+  nav_request      = 0
+
+Subsequent pages (pagination):
+  [same as above] PLUS:
+  current_page     = <previous page number from response>
+  result_id        = <result_id from first response>
+
+RESPONSE FORMAT (JSON)
+-----------------------
+{
+  "status": 200,
+  "status_text": "<div ...>882 Results</div>...",
+  "total_records": "882",
+  "total_pages": 5,
+  "total_sum": "70484180.48",
+  "current_page": null,       <- null on first call; incremented by JS to 1 for next page
+  "result_id": "410465520",   <- cache key for pagination
+  "html": "<tr id='resultRow...'> ... </tr> ...",   <- HTML rows
+  "url": "/tools/required/reports/payroll?action=get",
+  "share_url": "https://www.seethroughny.net/payrolls/410465520",
+  "parameters": {"PayYear": ["2025"], "AgencyName": ["South Country CSD"]},
+  "sort_by": "YTDPay DESC",
+  ...
+}
+
+ITEMS PER PAGE: 200 (STNY_ITEMS_PER_PAGE from page JS)
+MAX PAY YEAR:   2025 (STNY_MAX_PAY_YEAR from page JS)
+
+HTML STRUCTURE (per record)
+---------------------------
+Each record = 2 <tr> elements:
+
+1. Summary row:
+   <tr id="resultRow{id}" onclick="...">
+     <td><a>+</a></td>
+     <td>{Name}</td>                          <- e.g. "Santana, Antonio"
+     <td>{Agency}</td>                        <- e.g. "South Country CSD"
+     <td>{Total Pay}</td>                     <- e.g. "$284,222"
+     <td>{SubAgency/Type}</td>                <- e.g. "NYSTRS - Educator"
+   </tr>
+
+2. Detail (expand) row:
+   <tr id="expandRow{id}" style="display:none">
+     ... SubAgency/Type: ...
+     ... Title: ...            <- job title / position
+     ... Rate of Pay: ...      <- hourly/annual rate (may be "NDR" = Not Disclosed)
+     ... Pay Year: ...         <- e.g. "2025"
+     ... Pay Basis: ...        <- e.g. "Annual", "Hourly"
+     ... Branch/Major Category: ...  <- e.g. "Schools"
+   </tr>
+
+PAGINATION ALGORITHM
+---------------------
+1. POST initial search -> get result_id, total_pages, first page HTML
+2. For page 2..N: POST with same params + current_page=(page-1) + result_id
+3. The server uses result_id to serve cached result pages
+
+SAMPLE: 2025 data for South Country CSD
+  Total records: 882
+  Total sum: $70,484,180
+  Pages: 5 (200 per page)
+
+AVAILABLE YEARS
+---------------
+The form supports PayYear[] = [2010..2025] (check STNY_MAX_PAY_YEAR on the page).
+To get all years, omit the PayYear[] parameter entirely.
+
+RATE LIMITING
+-------------
+No explicit rate limiting observed. Add 1-2 second delays between page requests
+to be a polite scraper.
